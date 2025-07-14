@@ -3,14 +3,13 @@ from typing import List, Optional
 
 from app.database import get_db
 from app.models import Sensor, SensorData
-from app.schemas import CoordinateResponse, SensorDataCreate
+from app.schemas import CoordinateResponse, SensorDataCreate, SensorDataBatchCreate
 from app.utils import calculate_avg_distance, calculate_avg_speed
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/sensor-data", tags=["Sensor Data"])
-
 
 @router.post("/")
 def add_sensor_data(data: SensorDataCreate, db: Session = Depends(get_db)):
@@ -27,6 +26,26 @@ def add_sensor_data(data: SensorDataCreate, db: Session = Depends(get_db)):
     )
     db.add(record)
     db.commit()
+    return {"status": "Sensor data added"}
+
+@router.post("/batch/")
+def add_sensor_data_batch(data: SensorDataBatchCreate, db: Session = Depends(get_db)):
+    sensor = db.query(Sensor).filter_by(internal_id=data.internal_id).first()
+    if not sensor:
+        raise HTTPException(status_code=404, detail="Sensor not found")
+    
+    for entry in data.entries:
+        record = SensorData(
+            timestamp=entry.timestamp,
+            is_light=entry.is_light,
+            latitude=entry.latitude,
+            longitude=entry.longitude,
+            sensor=sensor
+        )
+        db.add(record)
+        
+    db.commit()
+    
     return {"status": "Sensor data added"}
 
 @router.get("/avg-speed/")
