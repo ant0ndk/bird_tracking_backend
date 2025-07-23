@@ -1,10 +1,21 @@
 import struct
 from typing import List, Dict, Any
-import crcmod.predefined
+import crcmod
 
 
-CRC32_FUNC = crcmod.predefined.mkPredefinedCrcFun("crc-32")
+CRC32_FUNC = crcmod.mkCrcFun(0x104C11DB7, initCrc=0xFFFFFFFF, rev=False, xorOut=0x00000000)
 
+def swap_bytes_endianness(data: bytes, word_size: int = 4) -> bytes:
+    """
+    Переводит little-endian в big-endian
+    """
+
+    swapped_words = []
+    for i in range(0, len(data), word_size):
+        chunk = data[i:i + word_size]
+        swapped_words.append(chunk[::-1])
+    
+    return b''.join(swapped_words)
 
 class BinaryProtocolParser:
     """
@@ -30,7 +41,7 @@ class BinaryProtocolParser:
         if len(body) != msg_len:
             raise ValueError("Неверная длина блока сообщений")
 
-        if CRC32_FUNC(body) != crc32:
+        if CRC32_FUNC(swap_bytes_endianness(body)) != crc32:
             raise ValueError("CRC32 mismatch")
 
         messages = self._decode_messages(body)

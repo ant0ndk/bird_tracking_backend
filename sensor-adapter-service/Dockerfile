@@ -4,7 +4,7 @@ WORKDIR /code
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY sensor_adapter_service /code
+COPY . /code
 ENV PYTHONPATH=/code
 
 EXPOSE 8002
