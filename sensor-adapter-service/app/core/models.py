@@ -1,10 +1,7 @@
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.types import Float, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
-
-
-class Base(DeclarativeBase):
-    pass
+from app.core.database import Base
 
 
 class SensorMessage(Base):
