@@ -1,9 +1,8 @@
 import struct
 from typing import List, Dict, Any
-import crcmod
+from crcmod.predefined import mkCrcFun
 
-
-CRC32_FUNC = crcmod.mkCrcFun(0x104C11DB7, initCrc=0xFFFFFFFF, rev=False, xorOut=0x00000000)
+CRC8_FUNC = mkCrcFun('crc-8-maxim')
 
 def swap_bytes_endianness(data: bytes, word_size: int = 4) -> bytes:
     """
@@ -23,8 +22,11 @@ class BinaryProtocolParser:
     Поддерживается только тип 0x02 (SensorData_ALL).
     """
 
-    HEADER_FMT = "<I12sH"          # checksum, device_id, msg_length
+    HEADER_FMT = "<12sH"          # device_id, msg_length
     HEADER_SIZE = struct.calcsize(HEADER_FMT)
+    
+    CRC_FMT = "<B"
+    CRC_SIZE = struct.calcsize(CRC_FMT)
 
     MSG_SENSOR_ALL_FMT = "<BIffhhhhhhhhhff"
     MSG_SENSOR_ALL_SIZE = struct.calcsize(MSG_SENSOR_ALL_FMT)
@@ -33,16 +35,13 @@ class BinaryProtocolParser:
         if len(raw) < self.HEADER_SIZE:
             raise ValueError("Пакет короче заголовка")
 
-        crc32, device_id, msg_len = struct.unpack(
+        device_id, msg_len = struct.unpack(
             self.HEADER_FMT, raw[: self.HEADER_SIZE]
         )
 
         body = raw[self.HEADER_SIZE :]
         if len(body) != msg_len:
             raise ValueError("Неверная длина блока сообщений")
-
-        if CRC32_FUNC(swap_bytes_endianness(body)) != crc32:
-            raise ValueError("CRC32 mismatch")
 
         messages = self._decode_messages(body)
 
@@ -62,12 +61,18 @@ class BinaryProtocolParser:
             if msg_type != 0x02:
                 raise ValueError(f"Неизвестный msg_type={msg_type}")
 
-            if len(body) - idx < self.MSG_SENSOR_ALL_SIZE:
+            if len(body) - idx < self.MSG_SENSOR_ALL_SIZE + self.CRC_SIZE:
                 raise ValueError("Сообщение 0x02 обрезано")
 
             unpacked = struct.unpack(
                 self.MSG_SENSOR_ALL_FMT, body[idx : idx + self.MSG_SENSOR_ALL_SIZE]
             )
+            
+            (crc_8, ) = struct.unpack(
+                self.CRC_FMT, body[idx + self.MSG_SENSOR_ALL_SIZE : idx + self.MSG_SENSOR_ALL_SIZE
+                                   + self.CRC_SIZE]
+            )
+            
             (
                 _,
                 timestamp,
@@ -85,6 +90,9 @@ class BinaryProtocolParser:
                 light,
                 temp,
             ) = unpacked
+            
+            if not CRC8_FUNC(body[idx : idx + self.MSG_SENSOR_ALL_SIZE]) == crc_8:
+                raise ValueError("Неверная контрольная сумма сообщения")
 
             result.append(
                 {
@@ -98,6 +106,6 @@ class BinaryProtocolParser:
                     "temperature": temp,
                 }
             )
-            idx += self.MSG_SENSOR_ALL_SIZE
+            idx += self.MSG_SENSOR_ALL_SIZE + self.CRC_SIZE
 
         return result

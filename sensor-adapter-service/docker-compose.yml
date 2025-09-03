@@ -20,6 +20,8 @@ services:
       POSTGRES_PASSWORD: sensors_pass
     volumes:
       - postgres_data_sensors:/var/lib/postgresql/data
+    ports:
+      - "5435:5432"
 
 volumes:
   postgres_data_sensors:

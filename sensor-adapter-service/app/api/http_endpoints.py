@@ -2,6 +2,8 @@ from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse
 from app.adapters import adapter
 
+import traceback
+
 router = APIRouter()
 
 
@@ -11,5 +13,6 @@ async def receive_binary(request: Request):
     try:
         processed = await adapter.process_packet(raw)
     except Exception as exc:
+        # print(traceback.format_exc())
         raise HTTPException(400, detail=str(exc))
     return JSONResponse(content=processed)
