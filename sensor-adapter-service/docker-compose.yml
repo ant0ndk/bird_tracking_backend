@@ -8,9 +8,6 @@ services:
       - "9999:${APP_TCP_PORT}"       # TCP сервер
     env_file:
       - ./.env
-    environment:
-      DATABASE_URL: postgresql+asyncpg://sensors_user:sensors_pass@db:5432/sensors_db
-      ENABLE_TCP_SERVER: "true"
     depends_on:
       - db
 
