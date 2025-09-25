@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from contextlib import asynccontextmanager
 from app.api.http_endpoints import router as http_router
 from app.core.database import start_database
 from app.config.settings import settings
@@ -8,15 +9,17 @@ app = FastAPI(title="Sensor Adapter Service")
 
 app.include_router(http_router, prefix="/api/v1")
 
-@app.on_event("startup")
-async def on_startup():
-    await start_database()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await start_database()    
+    yield
 
 # --- TCP server -----------------------------------------------------------
 if settings.ENABLE_TCP_SERVER:
     from app.api.tcp_server import run_tcp_server
 
-    @app.on_event("startup")
-    async def _start_tcp():
+    @asynccontextmanager
+    async def tcp_lifespan(app: FastAPI):
         loop = asyncio.get_event_loop()
-        loop.create_task(run_tcp_server("0.0.0.0", 9999))
+        loop.create_task(run_tcp_server(settings.APP_HOST, settings.APP_TCP_PORT))
+        yield
